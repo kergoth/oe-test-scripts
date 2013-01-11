@@ -1,0 +1,81 @@
+#!/usr/bin/env python2.7
+#
+# This script tests for relocation errors in tools we run during the build
+#
+# It does so by building the specified target, then rebuilding all of its
+# dependencies from scratch in a new tmpdir, with all their dependencies
+# pulled from sstates produced in the previous tmpdir.
+
+import argparse
+import bb_test
+import os
+import sys
+
+
+def write_config(topdir, tmpdir, sstate_mirrors=None, sstate_dir=None):
+    with open('conf/auto.conf', 'w') as conf:
+        conf.write('TOPDIR = "{}"\n'.format(topdir))
+        conf.write('TMPDIR = "{}"\n'.format(tmpdir))
+
+        if sstate_mirrors is not None:
+            conf.write('SSTATE_MIRRORS = "{}"\n'.format(sstate_mirrors))
+
+        if sstate_dir is not None:
+            conf.write('SSTATE_DIR = "{}"\n'.format(sstate_dir))
+
+
+def main(cmdline_args):
+    build_tmpdir = '${TOPDIR}/tmp'
+    rebuild_tmpdir = '${TOPDIR}/tmp.rebuild'
+    rebuild_sstatedir = '${TMPDIR}/sstate-cache'
+
+    parser = argparse.ArgumentParser(description='Run sstate reloc tests')
+    parser.add_argument('target', default='core-image-base', nargs='?',
+                        help='target whose recipes should be rebuilt one-by-one (default: %(default)s)')
+    parser.add_argument('-x', dest='excludetarget', default='pseudo-native',
+                        help='whose recipes should be excluded (default: %(default)s)')
+    parser.add_argument('-o', dest='outputdir', default='{}-build'.format(os.path.basename(__file__)),
+                        help='where the script output will go (default: %(default)s)')
+
+    args = parser.parse_args(cmdline_args[1:])
+    args.outputdir = os.path.abspath(args.outputdir)
+
+    # Fully populate ${TOPDIR}/sstate-cache for the target
+    write_config(args.outputdir, build_tmpdir)
+    with bb_test.status('Building {}'.format(args.target)):
+         bb_test.bitbake(args.target)
+
+    # Build up to our excludetarget up front to ensure that any errors there
+    # show up before we even start our recipe testing
+    with bb_test.status('Prebuilding {}'.format(args.excludetarget)):
+        write_config(args.outputdir, rebuild_tmpdir)
+        bb_test.bitbake(args.excludetarget)
+
+    with bb_test.status('Getting SSTATE_DIR from prepopulation build'):
+        env = bb_test.get_bitbake_env()
+        sstate_dir = env['SSTATE_DIR']
+
+    recipes = list(bb_test.for_each_recipe(args.target, args.excludetarget))
+    total_recipes = len(recipes)
+
+    # For each recipe, build it from scratch with its deps pulled from sstate
+    # which were built in a different tmpdir
+    for pos, recipe in enumerate(recipes):
+        # In a new tmpdir, build the recipe from scratch
+        with bb_test.status('Rebuilding {} ({}/{}) from scratch'.format(recipe, pos, total_recipes)):
+            write_config(args.outputdir, rebuild_tmpdir, "", rebuild_sstatedir)
+            bb_test.bitbake('-c', 'cleansstate', recipe)
+            bb_test.bitbake(recipe)
+
+        # In the same new tmpdir, build the recipe from the prepopulated
+        # sstate cache, so it can be used by the next recipe rebuild
+        with bb_test.status('Rebuilding {} ({}/{}) from sstate'.format(recipe, pos, total_recipes)):
+            write_config(args.outputdir, rebuild_tmpdir,
+                         'file://.* file://{}/PATH'.format(sstate_dir),
+                         rebuild_sstatedir)
+            bb_test.bitbake('-c', 'cleansstate', recipe)
+            bb_test.bitbake(recipe)
+
+
+if __name__ == '__main__':
+    bb_test.run_main(main, sys.argv)
