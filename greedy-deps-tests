@@ -38,6 +38,8 @@ def main(cmdline_args):
                         help='test only the specified target, not its dependencies')
     parser.add_argument('-w', '--wipe', action='store_true',
                         help='start from scratch, wiping the temp and buildhistory directories before testing')
+    parser.add_argument('-k', '--keep-going', action='store_true',
+                        help='keep going after encountering a failure, to gather up all the problems in one run')
 
     args = parser.parse_args(cmdline_args[1:])
     if args.populatetarget is None:
@@ -88,7 +90,7 @@ def main(cmdline_args):
 
         try:
             env = bb_test.get_bitbake_env(recipe)
-        except sh.ReturnCodeError:
+        except sh.ErrorReturnCode:
             print('Error running bitbake -e {}, skipping'.format(recipe))
             continue
         package_path = env['BUILDHISTORY_DIR_PACKAGE']
@@ -114,7 +116,11 @@ def main(cmdline_args):
                                bb_test.status('Checking buildhistory for {}'.format(recipe))):
             buildhistory_diff = sh.buildhistory_diff(package_path, start_head)
             if buildhistory_diff:
-                sys.exit("Differences in buildhistory for {}:\n{}".format(recipe, buildhistory_diff))
+                msg = "Differences in buildhistory for {}:\n{}".format(recipe, buildhistory_diff)
+                if args.keep_going:
+                    sys.stderr.write(msg + '\n')
+                else:
+                    sys.exit(msg)
 
 
 if __name__ == '__main__':

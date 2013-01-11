@@ -10,6 +10,7 @@ import argparse
 import bb_test
 import os
 import sys
+import traceback
 
 
 def write_config(topdir, tmpdir, sstate_mirrors=None, sstate_dir=None):
@@ -36,6 +37,8 @@ def main(cmdline_args):
                         help='whose recipes should be excluded (default: %(default)s)')
     parser.add_argument('-o', dest='outputdir', default='{}-build'.format(os.path.basename(__file__)),
                         help='where the script output will go (default: %(default)s)')
+    parser.add_argument('-k', '--keep-going', action='store_true',
+                        help='keep going after encountering a failure, to gather up all the problems in one run')
 
     args = parser.parse_args(cmdline_args[1:])
     args.outputdir = os.path.abspath(args.outputdir)
@@ -65,7 +68,12 @@ def main(cmdline_args):
         with bb_test.status('Rebuilding {} ({}/{}) from scratch'.format(recipe, pos, total_recipes)):
             write_config(args.outputdir, rebuild_tmpdir, "", rebuild_sstatedir)
             bb_test.bitbake('-c', 'cleansstate', recipe)
-            bb_test.bitbake(recipe)
+            try:
+                bb_test.bitbake(recipe)
+            except sh.ErrorReturnCode as exc:
+                sys.stderr.write('Error building {}:\n{}\n'.format(recipe, exc.message))
+                if not args.keep_going:
+                    sys.exit(1)
 
         # In the same new tmpdir, build the recipe from the prepopulated
         # sstate cache, so it can be used by the next recipe rebuild
