@@ -74,7 +74,8 @@ def main(cmdline_args):
     with bb_test.status('Verifying dependent recipes are built'):
         bb_test.bitbake(*recipes)
 
-    for recipe in recipes:
+    recipe_count = len(recipes)
+    for current, recipe in enumerate(recipes):
         skip=False
         for suffix in skipped_suffixes:
             if recipe.endswith(suffix):
@@ -103,10 +104,10 @@ def main(cmdline_args):
         with chdir(os.path.join(args.outputdir, 'buildhistory')):
             start_head = sh.git('rev-parse', 'HEAD').rstrip()
 
-        with bb_test.status('Cleaning {}'.format(recipe)):
+        with bb_test.status('Cleaning {} [{}/{}]'.format(recipe, current, recipe_count)):
             bb_test.bitbake('-c', 'cleansstate', recipe)
 
-        with bb_test.status('Rebuilding {}'.format(recipe)):
+        with bb_test.status('Rebuilding {} [{}/{}]'.format(recipe, current, recipe_count)):
             bb_test.bitbake(recipe)
 
         with contextlib.nested(chdir(os.path.join(args.outputdir, 'buildhistory')),
