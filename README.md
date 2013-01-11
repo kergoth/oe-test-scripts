@@ -29,4 +29,19 @@ dependencies from scratch, one by one, monitoring for buildhistory changes.
 This has been verified functional by spotting libpcap's tendency to pull in
 libusb functionality if libusb is available. To reproduce this:
 
-    ./greedy-deps-tests -p libusb1 -s libpcap
+    ./greedy-deps-tests -p libusb1 -s -w libpcap
+
+Example output of this command:
+
+    $ ./greedy-deps-tests -p libusb1 -s -w libpcap
+    Wiping temp directory...done
+    Wiping buildhistory directory...done
+    Building libpcap from scratch...done
+    Building libusb1 to prepopulate tmpdir...done
+    Cleaning libpcap...done
+    Rebuilding libpcap...done
+    Checking buildhistory for libpcap...failed
+    Differences in buildhistory for libpcap:
+    packages/i586-mel-linux/libpcap/libpcap-dbg: RRECOMMENDS: added "libusb1-dbg"
+    packages/i586-mel-linux/libpcap/libpcap-dev: RRECOMMENDS: added "libusb1-dev"
+    packages/i586-mel-linux/libpcap/libpcap: RDEPENDS: added "libusb1 (['>= 1.0.9'])"
