@@ -83,6 +83,9 @@ def ordered_recipelist(target):
     finally:
         remove(*glob.glob('*.dot'))
         remove('pn-buildlist')
+
+    recipe_list = filter(lambda r: r != target, recipe_list)
+    recipe_list.append(target)
     return recipe_list
 
 
