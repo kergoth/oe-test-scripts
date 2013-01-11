@@ -1,4 +1,5 @@
 import contextlib
+import dot
 import errno
 import glob
 import os
@@ -60,8 +61,18 @@ def bitbake(*args, **kwargs):
         raise
     return bb.stdout
 
-scriptdir = os.path.dirname(os.path.abspath(__file__))
-dot_to_recipes = sh.Command(os.path.join(scriptdir, 'dot-to-recipes'))
+
+def dot_to_recipes(dotfile, target, default_task='do_build',
+                   build_task='do_populate_sysroot'):
+    """Given a .dot file, flatten the graph, limit to execution of build_task, and return a list of these recipes in this order"""
+    # Get dependency information
+    depends = dot.parse_depends(dotfile)
+
+    # Flatten into a list of recipes
+    depend_list = dot.get_all_depends(depends, '%s.%s' % (target, default_task))
+
+    recipes = list(node[0] for node in depend_list if node[1] == build_task)
+    return recipes
 
 
 def ordered_recipelist(target):
@@ -72,7 +83,7 @@ def ordered_recipelist(target):
     finally:
         remove(*glob.glob('*.dot'))
         remove('pn-buildlist')
-    return [l.rstrip() for l in recipe_list.splitlines()]
+    return recipe_list
 
 
 def get_bitbake_env(recipe=None):
@@ -112,6 +123,7 @@ def for_each_recipe(target='core-image-base', excludetarget='pseudo-native'):
         if recipe in excluded:
             continue
         yield recipe
+
 
 def rebuild_recipes(target='core-image-base', excludetarget='pseudo-native',
                     clean=True):
