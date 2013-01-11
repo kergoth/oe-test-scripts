@@ -69,7 +69,10 @@ def main(cmdline_args):
     if args.short_circuit:
         recipes = [args.target]
     else:
-        recipes = bb_test.for_each_recipe(args.target, args.excludetarget)
+        recipes = list(bb_test.for_each_recipe(args.target, args.excludetarget))
+
+    with bb_test.status('Verifying dependent recipes are built'):
+        bb_test.bitbake(*recipes)
 
     for recipe in recipes:
         skip=False
@@ -81,6 +84,7 @@ def main(cmdline_args):
 
         if skip:
             continue
+
         try:
             env = bb_test.get_bitbake_env(recipe)
         except sh.ReturnCodeError:
