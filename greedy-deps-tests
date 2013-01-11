@@ -24,6 +24,7 @@ def chdir(directory):
 
 
 def main(cmdline_args):
+    skipped_suffixes = ['-native', '-cross', '-cross-canadian']
     parser = argparse.ArgumentParser(description='Run greedy deps tests')
     parser.add_argument('target', default='core-image-base', nargs='?',
                         help='target whose recipes should be rebuilt one-by-one (default: %(default)s)')
@@ -71,6 +72,15 @@ def main(cmdline_args):
         recipes = bb_test.for_each_recipe(args.target, args.excludetarget)
 
     for recipe in recipes:
+        skip=False
+        for suffix in skipped_suffixes:
+            if recipe.endswith(suffix):
+                print('Skipping {}, as it is not packaged'.format(recipe))
+                skip=True
+                break
+
+        if skip:
+            continue
         try:
             env = bb_test.get_bitbake_env(recipe)
         except sh.ReturnCodeError:
