@@ -3,6 +3,8 @@ oe-test-scripts
 
 Some testing scripts I use for OE/bitbake/yocto
 
+These expect to be run from a functional bitbake build environment.
+
 reloc-tests
 -----------
 
