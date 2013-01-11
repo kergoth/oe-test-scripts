@@ -27,4 +27,4 @@ dependencies from scratch, one by one, monitoring for buildhistory changes.
 This has been verified functional by spotting libpcap's tendency to pull in
 libusb functionality if libusb is available. To reproduce this:
 
-  ./greedy-deps-tests -p libusb1 -s libpcap
+    ./greedy-deps-tests -p libusb1 -s libpcap
