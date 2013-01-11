@@ -30,5 +30,19 @@ def _get_all_depends(depends, target, seen):
 
         yield tuple(node.split('.'))
 
+
 def get_all_depends(depends, target):
     return _get_all_depends(depends, target, set())
+
+
+if __name__ == '__main__':
+    import sys
+    try:
+        dotfile = sys.argv[1]
+        target = sys.argv[2]
+    except IndexError:
+        sys.exit("Usage: python %s DOTFILE TARGET" % __file__)
+
+    depends = parse_depends(dotfile)
+    for recipe, task in get_all_depends(depends, target):
+        print("%s.%s" % (recipe, task))
