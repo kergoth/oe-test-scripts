@@ -56,7 +56,7 @@ def main(cmdline_args):
 
     if args.wipe:
         with bb_test.status('Wiping output directory'):
-            shutil.rmtree(args.outputdir)
+            shutil.rmtree(args.outputdir, ignore_errors=True)
 
     with bb_test.status('Building {}'.format(args.target)):
         bb_test.bitbake(args.target)
