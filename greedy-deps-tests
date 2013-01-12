@@ -61,17 +61,32 @@ def main(cmdline_args):
     with bb_test.status('Building {}'.format(args.target)):
         bb_test.bitbake(args.target)
 
-    if args.populatetarget != args.target:
-        with bb_test.status('Building {} to prepopulate tmpdir'.format(args.populatetarget)):
-            bb_test.bitbake(*(args.populatetarget.split()))
-
     if args.short_circuit:
         recipes = [args.target]
     else:
         recipes = list(bb_test.for_each_recipe(args.target, args.excludetarget))
 
-    with bb_test.status('Verifying dependent recipes are built'):
-        bb_test.bitbake(*recipes)
+        with bb_test.status('Verifying dependent recipes are built'):
+            bb_test.bitbake(*recipes)
+
+    if args.populatetarget != args.target:
+        # We don't mind if these things are built from sstate, we just need
+        # their contents added to the sysroots, to affect the rebuilt recipes
+        with open('conf/auto.conf', 'w') as conf:
+            conf.write('TOPDIR = "{}"\n'.format(os.path.abspath(args.outputdir)))
+            conf.write('TMPDIR = "${TOPDIR}/tmp"\n')
+
+        with bb_test.status('Building {} to prepopulate tmpdir'.format(args.populatetarget)):
+            bb_test.bitbake(*(args.populatetarget.split()))
+
+        with open('conf/auto.conf', 'w') as conf:
+            conf.write('TOPDIR = "{}"\n'.format(os.path.abspath(args.outputdir)))
+            conf.write('TMPDIR = "${TOPDIR}/tmp"\n')
+            conf.write('SSTATE_MIRRORS = ""\n')
+            conf.write('SSTATE_DIR = "${TOPDIR}/sstate-cache"\n')
+            conf.write('INHERIT += "buildhistory"\n')
+            conf.write('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"\n')
+            conf.write('BUILDHISTORY_COMMIT = "1"\n')
 
     recipe_count = len(recipes)
     for current, recipe in enumerate(recipes):
