@@ -69,7 +69,7 @@ def main(cmdline_args):
         with bb_test.status('Verifying dependent recipes are built'):
             bb_test.bitbake(*recipes)
 
-    if args.populatetarget != args.target:
+    if args.populatetarget not in recipes:
         # We don't mind if these things are built from sstate, we just need
         # their contents added to the sysroots, to affect the rebuilt recipes
         with open('conf/auto.conf', 'w') as conf:
