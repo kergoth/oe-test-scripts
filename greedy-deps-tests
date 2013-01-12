@@ -37,7 +37,7 @@ def main(cmdline_args):
     parser.add_argument('-s', '--short-circuit', action='store_true',
                         help='test only the specified target, not its dependencies')
     parser.add_argument('-w', '--wipe', action='store_true',
-                        help='start from scratch, wiping the temp and buildhistory directories before testing')
+                        help='start from scratch, wiping the outputdir before testing')
     parser.add_argument('-k', '--keep-going', action='store_true',
                         help='keep going after encountering a failure, to gather up all the problems in one run')
 
@@ -55,11 +55,8 @@ def main(cmdline_args):
         conf.write('BUILDHISTORY_COMMIT = "1"\n')
 
     if args.wipe:
-        with bb_test.status('Wiping temp directory'):
-            shutil.rmtree(os.path.join(args.outputdir, 'tmp'), ignore_errors=True)
-
-        with bb_test.status('Wiping buildhistory directory'):
-            shutil.rmtree(os.path.join(args.outputdir, 'buildhistory'), ignore_errors=True)
+        with bb_test.status('Wiping output directory'):
+            shutil.rmtree(os.path.join(args.outputdir)
 
     with bb_test.status('Building {}'.format(args.target)):
         bb_test.bitbake(args.target)
