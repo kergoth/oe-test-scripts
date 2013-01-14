@@ -116,7 +116,7 @@ def main(cmdline_args):
             continue
 
         with chdir(os.path.join(args.outputdir, 'buildhistory')):
-            start_head = sh.git('rev-parse', 'HEAD').rstrip()
+            start_head = sh.git('rev-parse', 'HEAD', package_path).rstrip()
 
         with bb_test.status('Cleaning {} [{}/{}]'.format(recipe, current, recipe_count)):
             bb_test.bitbake('-c', 'cleansstate', recipe)
