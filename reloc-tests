@@ -9,8 +9,8 @@
 import argparse
 import bb_test
 import os
+import sh
 import sys
-import traceback
 
 
 def write_config(topdir, tmpdir, sstate_mirrors=None, sstate_dir=None):
