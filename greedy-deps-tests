@@ -90,11 +90,11 @@ def main(cmdline_args):
 
     recipe_count = len(recipes)
     for current, recipe in enumerate(recipes):
-        skip=False
+        skip = False
         for suffix in skipped_suffixes:
             if recipe.endswith(suffix):
                 print('Skipping {}, as it is not packaged'.format(recipe))
-                skip=True
+                skip = True
                 break
 
         if skip:

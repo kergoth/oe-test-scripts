@@ -46,7 +46,7 @@ def main(cmdline_args):
     # Fully populate ${TOPDIR}/sstate-cache for the target
     write_config(args.outputdir, build_tmpdir)
     with bb_test.status('Building {}'.format(args.target)):
-         bb_test.bitbake(args.target)
+        bb_test.bitbake(args.target)
 
     # Build up to our excludetarget up front to ensure that any errors there
     # show up before we even start our recipe testing
