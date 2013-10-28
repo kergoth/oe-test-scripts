@@ -117,7 +117,14 @@ def main(cmdline_args):
 
         with chdir(os.path.join(args.outputdir, 'buildhistory')):
             revs = sh.git('rev-list', 'HEAD', '-2', package_path).splitlines()
-            start_head = revs[1].rstrip()
+
+        if (len(revs) < 2):
+            # If build has no changes a dummy commit will be made to build history 
+            # so buildhistory/packages/* will have only 1 commit related to initial build.
+            print('Skipping {}: no change in the history'.format(recipe))
+            continue
+
+        start_head = revs[1].rstrip()
 
         with bb_test.status('Cleaning {} [{}/{}]'.format(recipe, current, recipe_count)):
             bb_test.bitbake('-c', 'cleansstate', recipe)
