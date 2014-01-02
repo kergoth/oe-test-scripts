@@ -39,10 +39,19 @@ def status(message):
     except Terminate:
         sys.stdout.write('.terminated\n')
         raise
+    except StatusMessage as exc:
+        sys.stdout.write('.{0}\n'.format(exc.message))
     except BaseException:
         sys.stdout.write('.failed\n')
         raise
-    sys.stdout.write('.done\n')
+    else:
+        sys.stdout.write('.done\n')
+
+
+class StatusMessage(Warning):
+    def __init__(self, message):
+        self.message = message
+        super(StatusMessage, self).__init__()
 
 
 def run(cmd, *args, **kwargs):
