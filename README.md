@@ -45,3 +45,12 @@ Example output of this command:
     packages/i586-mel-linux/libpcap/libpcap-dbg: RRECOMMENDS: added "libusb1-dbg"
     packages/i586-mel-linux/libpcap/libpcap-dev: RRECOMMENDS: added "libusb1-dev"
     packages/i586-mel-linux/libpcap/libpcap: RDEPENDS: added "libusb1 (['>= 1.0.9'])"
+
+leaky-layer-tests
+-----------------
+
+This is a simple script which uses a default configuration (poky/qemux86),
+and adds each available bsp or distro layer to the configuration, one at
+a time, monitoring for changes to the target with bitbake-whatchanged. This
+helps one to identify bsp layers which affect machines other than the ones
+it provides, and distro layers which affect other distros when included.
