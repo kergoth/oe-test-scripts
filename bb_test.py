@@ -45,21 +45,27 @@ def status(message):
     sys.stdout.write('.done\n')
 
 
-def bitbake(*args, **kwargs):
-    """Run bitbake, and kill the processes when the user ^C's or terminates"""
-    bb = sh.bitbake(*args, _in='/dev/null', _bg=True, **kwargs)
-    bitbake_sid = os.getsid(bb.pid)
+def run(cmd, *args, **kwargs):
+    """Run a process, and kill the processes when the user ^C's or terminates"""
+    cmdobj = getattr(sh, cmd)
+    process = cmdobj(*args, _in='/dev/null', _bg=True, **kwargs)
+    sid = os.getsid(process.pid)
     try:
-        bb.wait()
+        process.wait()
     except BaseException:
         try:
-            os.kill(bitbake_sid, signal.SIGTERM)
+            os.kill(sid, signal.SIGTERM)
         except OSError as exc:
             if exc.errno == errno.ESRCH:
-                return bb.stdout
-            sys.stderr.write("error killing bitbake processes")
+                return process.stdout
+            sys.stderr.write("error killing child processes")
         raise
-    return bb.stdout
+    return process.stdout
+
+
+def bitbake(*args, **kwargs):
+    """Run bitbake, and kill the processes when the user ^C's or terminates"""
+    return run('bitbake', *args, **kwargs)
 
 
 def dot_to_recipes(dotfile, target, default_task='do_build',
