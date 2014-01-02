@@ -27,11 +27,11 @@ import sys
 
 def main(cmdline_args):
     parser = argparse.ArgumentParser(description='Run leaky layer tests')
-    parser.add_argument('target', default='core-image-base', nargs='?',
-                        help='target to be checked (default: %(default)s)')
-    parser.add_argument('excluded', default='poky/meta oe-core/meta poky/meta-yocto oe-core/meta-yocto',
-                        nargs='?',
+    parser.add_argument('--excluded', '-x',
+                        default='poky/meta oe-core/meta poky/meta-yocto oe-core/meta-yocto',
                         help='layers to exclude from processing (default: %(default)s)')
+    parser.add_argument('--target', '-t', default='core-image-base',
+                        help='target to be checked (default: %(default)s)')
 
     args = parser.parse_args(cmdline_args[1:])
 
