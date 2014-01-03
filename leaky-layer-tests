@@ -69,17 +69,17 @@ def main(cmdline_args):
             f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
 
         try:
-            with bb_test.status('Testing parsing for {0}'.format(layerbase)):
+            with bb_test.status('Testing parsing for {0}'.format(layerbase)) as s:
                 bb_test.bitbake('-p')
-        except sh.ErrorReturnCode as exc:
+        except sh.ErrorReturnCode:
             continue
 
         targets = set()
-        with bb_test.status('Gathering appends for {0}'.format(layerbase)):
+        with bb_test.status('Gathering appends for {0}'.format(layerbase)) as s:
             try:
                 output = bb_test.run('bitbake-layers', 'show-appends')
             except sh.ErrorReturnCode as exc:
-                raise SkipLayer()
+                s.set_status('skipped')
             else:
                 for line in output.splitlines():
                     line = line.strip()
@@ -106,7 +106,7 @@ def main(cmdline_args):
             f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
 
         for target in targets:
-            with bb_test.status('Testing {0}: {1}'.format(layerbase, target)):
+            with bb_test.status('Testing {0}: {1}'.format(layerbase, target)) as s:
                 try:
                     output = bb_test.run('bitbake-whatchanged', target)
                 except sh.ErrorReturnCode as exc:
@@ -120,7 +120,7 @@ def main(cmdline_args):
                     verbose = bb_test.run('bitbake-whatchanged', '-v', target)
                     with open(verbose_fn, 'w') as f:
                         f.write(verbose)
-                    raise ModifiedRecipe(verbose_fn)
+                    s.set_status('modified (see `{0}`)'.format(verbose_fn))
 
 
 def filter_lines(filename, keepfunc):
@@ -130,16 +130,6 @@ def filter_lines(filename, keepfunc):
     with open(filename, 'w') as f:
         lines = filter(keepfunc, lines)
         f.writelines(lines)
-
-
-class ModifiedRecipe(bb_test.StatusMessage):
-    def __init__(self, fn):
-        super(ModifiedLayer, self).__init__('modified (see `{0}`)'.format(fn))
-
-
-class SkipLayer(bb_test.StatusMessage):
-    def __init__(self):
-        super(SkipLayer, self).__init__('skipped')
 
 
 if __name__ == '__main__':

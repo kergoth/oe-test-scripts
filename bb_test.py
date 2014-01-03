@@ -26,32 +26,42 @@ def remove(*files):
             os.unlink(f)
 
 
-@contextlib.contextmanager
-def status(message):
+class StatusDisplay(object):
     """Show the user what we're doing, and whether we succeed"""
-    sys.stdout.write('{}..'.format(message))
-    sys.stdout.flush()
-    try:
-        yield
-    except KeyboardInterrupt:
-        sys.stdout.write('.interrupted\n')
-        raise
-    except Terminate:
-        sys.stdout.write('.terminated\n')
-        raise
-    except StatusMessage as exc:
-        sys.stdout.write('.{0}\n'.format(exc.message))
-    except BaseException:
-        sys.stdout.write('.failed\n')
-        raise
-    else:
-        sys.stdout.write('.done\n')
 
-
-class StatusMessage(Warning):
-    def __init__(self, message):
+    def __init__(self, message, output=None):
         self.message = message
-        super(StatusMessage, self).__init__()
+        if output is None:
+            output = sys.stdout
+        self.output = output
+        self.finished = False
+
+    def __enter__(self):
+        self.output.write('{}..'.format(self.message))
+        self.output.flush()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.finished:
+            return
+
+        if not exc_type:
+            self.set_status('done')
+        elif isinstance(exc_value, KeyboardInterrupt):
+            self.set_status('interrupted')
+        elif isinstance(exc_value, Terminate):
+            self.set_status('terminated')
+        else:
+            self.set_status('failed')
+
+    def set_status(self, finishmessage):
+        if self.finished:
+            raise Exception("Status is already finished")
+        self.output.write('.' + finishmessage + '\n')
+        self.finished = True
+
+
+status = StatusDisplay
 
 
 def run(cmd, *args, **kwargs):
