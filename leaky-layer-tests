@@ -2,9 +2,10 @@
 #
 # This is a simple script which uses a default configuration (poky/qemux86),
 # and adds each available bsp or distro layer to the configuration, one at
-# a time, monitoring for changes to the target with bitbake-whatchanged. This
-# helps one to identify bsp layers which affect machines other than the ones
-# it provides, and distro layers which affect other distros when included.
+# a time, monitoring for changes to the appended recipes with
+# bitbake-whatchanged. This helps one to identify bsp layers which affect
+# machines other than the ones it provides, and distro layers which affect
+# other distros when included.
 #
 # This script expects the user to be in a functional bitbake environment (that
 # is, the setup scripts sourced, with the current directory under the build
@@ -13,8 +14,8 @@
 # For layers which cause a delta, a text file holding the verbose
 # bitbake-whatchanged output will be written to the current directory.
 #
-# If the attempt to run bitbake-whatchanged fails (e.g. if there's a parse
-# failure), testing of that layer will be skipped.
+# If the attempt to parse the recipes in the layer, or the run of
+# bitbake-whatchanged fails, testing of that layer will be skipped.
 
 
 import argparse
@@ -30,8 +31,6 @@ def main(cmdline_args):
     parser.add_argument('--excluded', '-x',
                         default='poky/meta oe-core/meta poky/meta-yocto oe-core/meta-yocto',
                         help='layers to exclude from processing (default: %(default)s)')
-    parser.add_argument('--target', '-t', default='core-image-base',
-                        help='target to be checked (default: %(default)s)')
 
     args = parser.parse_args(cmdline_args[1:])
 
@@ -57,46 +56,70 @@ def main(cmdline_args):
     baseline_stampdir = '{0}.baseline'.format(stampsdir)
 
     tmpdir = bitbake_env['TMPDIR']
-    sh.rm('-rf', tmpdir)
-
-    baseline_env = os.environ.copy()
-    baseline_env['STAMPS_DIR'] = baseline_stampdir
-
-    # Generate the baseline stamps with sstate
-    filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
-    with bb_test.status('Populating baseline data'):
-        bb_test.bitbake('-S', args.target, _env=baseline_env)
-
     excluded = args.excluded.split()
-    for layerpath in layers:
+    for layerpath in sorted(layers):
         layerbase = layerpath[len('{0}/../'.format(corebase)):]
         if layerbase in args.excluded:
             continue
+
+        sh.rm('-rf', tmpdir)
 
         filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
         with open('conf/bblayers.conf', 'a') as f:
             f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
 
-        sh.rm('-rf', stampsdir)
-        sh.cp('-a', baseline_stampdir, stampsdir)
-        with bb_test.status('Testing {0}'.format(layerbase)):
+        try:
+            with bb_test.status('Testing parsing for {0}'.format(layerbase)):
+                bb_test.bitbake('-p')
+        except sh.ErrorReturnCode as exc:
+            continue
+
+        targets = set()
+        with bb_test.status('Gathering appends for {0}'.format(layerbase)):
             try:
-                output = bb_test.run('bitbake-whatchanged', args.target)
+                output = bb_test.run('bitbake-layers', 'show-appends')
             except sh.ErrorReturnCode as exc:
                 raise SkipLayer()
             else:
-                if output:
-                    if 'ERROR message shown' in output:
-                        raise SkipLayer()
-                    elif 'Summary: (0 changed' not in output:
-                        print(output)
-                        try:
-                            verbose = bb_test.run('bitbake-whatchanged', '-v', args.target)
-                        except sh.ErrorReturnCode as exc:
-                            raise SkipLayer()
-                        else:
-                            with open('bitbake-whatchanged.{0}.{1}'.format(os.path.basename(layerpath), args.target), 'w') as f:
-                                f.write(verbose)
+                for line in output.splitlines():
+                    line = line.strip()
+                    if line.startswith(layerpath + '/'):
+                        filename = os.path.basename(line)
+                        base, ext = os.path.splitext(filename)
+                        if ext == '.bbappend':
+                            targets.add(base.split('_')[0])
+
+        with bb_test.status('Generating baseline data for {0}: {1}'.format(layerbase, ', '.join(targets))):
+            filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
+            for target in list(targets):
+                try:
+                    bb_test.bitbake('-S', target)
+                except sh.ErrorReturnCode:
+                    # Failed to generate sig data for the target, most likely
+                    # due to it being skipped
+                    targets.remove(target)
+
+        if not targets:
+            continue
+
+        with open('conf/bblayers.conf', 'a') as f:
+            f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
+
+        for target in targets:
+            with bb_test.status('Testing {0}: {1}'.format(layerbase, target)):
+                try:
+                    output = bb_test.run('bitbake-whatchanged', target)
+                except sh.ErrorReturnCode as exc:
+                    sys.exit("Error testing {0}: {1}".format(layerbase, exc.message))
+                else:
+                    if (not output or
+                        any(m in output for m in ['ERROR message shown', 'Summary: (0 changed'])):
+                        continue
+
+                    print(output)
+                    verbose = bb_test.run('bitbake-whatchanged', '-v', target)
+                    with open('bitbake-whatchanged.{0}.{1}'.format(os.path.basename(layerpath), target), 'w') as f:
+                        f.write(verbose)
 
 
 def filter_lines(filename, keepfunc):
