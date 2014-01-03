@@ -49,8 +49,8 @@ Example output of this command:
 leaky-layer-tests
 -----------------
 
-This is a simple script which uses a default configuration (poky/qemux86),
-and adds each available bsp or distro layer to the configuration, one at
-a time, monitoring for changes to the target with bitbake-whatchanged. This
-helps one to identify bsp layers which affect machines other than the ones
-it provides, and distro layers which affect other distros when included.
+This is a simple script which uses a default configuration (poky/qemux86), and
+adds each available bsp or distro layer to the configuration, one at a time,
+monitoring for changes to the appended recipes with bitbake-whatchanged. This
+helps one to identify bsp layers which affect machines other than the ones it
+provides, and distro layers which affect other distros when included.
