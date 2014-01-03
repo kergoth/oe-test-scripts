@@ -116,10 +116,11 @@ def main(cmdline_args):
                         any(m in output for m in ['ERROR message shown', 'Summary: (0 changed'])):
                         continue
 
-                    print(output)
+                    verbose_fn = 'bitbake-whatchanged.{0}.{1}'.format(layerbase.replace('/', '_'), target)
                     verbose = bb_test.run('bitbake-whatchanged', '-v', target)
-                    with open('bitbake-whatchanged.{0}.{1}'.format(os.path.basename(layerpath), target), 'w') as f:
+                    with open(verbose_fn, 'w') as f:
                         f.write(verbose)
+                    raise ModifiedRecipe(verbose_fn)
 
 
 def filter_lines(filename, keepfunc):
@@ -129,6 +130,11 @@ def filter_lines(filename, keepfunc):
     with open(filename, 'w') as f:
         lines = filter(keepfunc, lines)
         f.writelines(lines)
+
+
+class ModifiedRecipe(bb_test.StatusMessage):
+    def __init__(self, fn):
+        super(ModifiedLayer, self).__init__('modified (see `{0}`)'.format(fn))
 
 
 class SkipLayer(bb_test.StatusMessage):
