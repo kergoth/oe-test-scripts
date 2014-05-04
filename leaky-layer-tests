@@ -52,9 +52,6 @@ def main(cmdline_args):
         if is_machine_layer or is_distro_layer:
             layers.add(layerpath)
 
-    stampsdir = bitbake_env['STAMPS_DIR']
-    baseline_stampdir = '{0}.baseline'.format(stampsdir)
-
     tmpdir = bitbake_env['TMPDIR']
     excluded = args.excluded.split()
     for layerpath in sorted(layers):
@@ -68,18 +65,20 @@ def main(cmdline_args):
         with open('conf/bblayers.conf', 'a') as f:
             f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
 
-        try:
-            with bb_test.status('Testing parsing for {0}'.format(layerbase)) as s:
+        with bb_test.status('Testing parsing for {0}'.format(layerbase)) as s:
+            try:
                 bb_test.bitbake('-p')
-        except sh.ErrorReturnCode:
-            continue
+            except sh.ErrorReturnCode:
+                s.set_status('error, skipping')
+                continue
 
         targets = set()
         with bb_test.status('Gathering appends for {0}'.format(layerbase)) as s:
             try:
                 output = bb_test.run('bitbake-layers', 'show-appends')
             except sh.ErrorReturnCode as exc:
-                s.set_status('skipped')
+                s.set_status('error, skipping')
+                continue
             else:
                 for line in output.splitlines():
                     line = line.strip()
@@ -88,15 +87,15 @@ def main(cmdline_args):
                         base, ext = os.path.splitext(filename)
                         if ext == '.bbappend':
                             targets.add(base.split('_')[0])
+                s.set_status(', '.join(targets))
 
-        with bb_test.status('Generating baseline data for {0}: {1}'.format(layerbase, ', '.join(targets))):
-            filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
-            for target in list(targets):
+        filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
+        for target in list(targets):
+            with bb_test.status('Generating baseline data for {0}: {1}'.format(layerbase, target)) as s:
                 try:
                     bb_test.bitbake('-S', 'none', target)
                 except sh.ErrorReturnCode:
-                    # Failed to generate sig data for the target, most likely
-                    # due to it being skipped
+                    s.set_status('skipped')
                     targets.remove(target)
 
         if not targets:
@@ -116,11 +115,11 @@ def main(cmdline_args):
                         any(m in output for m in ['ERROR message shown', 'Summary: (0 changed'])):
                         continue
 
-                    verbose_fn = 'bitbake-whatchanged.{0}.{1}'.format(layerbase.replace('/', '_'), target)
+                    output_fn = 'leaky-layer-test.{0}.{1}'.format(layerbase.replace('/', '_'), target)
                     verbose = bb_test.run('bitbake-whatchanged', '-v', target)
-                    with open(verbose_fn, 'w') as f:
+                    with open(output_fn, 'w') as f:
                         f.write(verbose)
-                    s.set_status('modified (see `{0}`)'.format(verbose_fn))
+                    s.set_status('modified (see `{0}`)'.format(output_fn))
 
 
 def filter_lines(filename, keepfunc):
