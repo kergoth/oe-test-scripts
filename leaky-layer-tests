@@ -93,7 +93,7 @@ def main(cmdline_args):
             filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
             for target in list(targets):
                 try:
-                    bb_test.bitbake('-S', target)
+                    bb_test.bitbake('-S', 'none', target)
                 except sh.ErrorReturnCode:
                     # Failed to generate sig data for the target, most likely
                     # due to it being skipped
