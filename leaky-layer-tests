@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 #
-# This is a simple script which uses a default configuration (poky/qemux86),
+# This is a simple script which uses a default configuration,
 # and adds each available bsp or distro layer to the configuration, one at
 # a time, monitoring for changes to the appended recipes with
 # bitbake-whatchanged. This helps one to identify bsp layers which affect
