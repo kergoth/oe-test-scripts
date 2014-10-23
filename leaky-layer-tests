@@ -23,7 +23,11 @@ import bb_test
 import glob
 import os
 import sh
+import subprocess
 import sys
+
+
+NULL = open('/dev/null', 'w')
 
 
 def main(cmdline_args):
@@ -33,6 +37,9 @@ def main(cmdline_args):
                         help='layers to exclude from processing (default: %(default)s)')
 
     args = parser.parse_args(cmdline_args[1:])
+    scriptdir = os.path.dirname(cmdline_args[0])
+
+    filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
 
     try:
         bitbake_env = bb_test.get_bitbake_env()
@@ -55,15 +62,28 @@ def main(cmdline_args):
     tmpdir = bitbake_env['TMPDIR']
     excluded = args.excluded.split()
     for layerpath in sorted(layers):
-        layerbase = layerpath[len('{0}/../'.format(corebase)):]
+        layerpath = os.path.realpath(layerpath)
+        layerbase = os.path.relpath(layerpath, os.path.join(corebase, '..'))
         if layerbase in args.excluded:
             continue
 
-        sh.rm('-rf', tmpdir)
+        try:
+            layerinfo = subprocess.check_output([os.path.join(scriptdir, 'bb-print-layer-data'), layerpath], stderr=NULL)
+        except subprocess.CalledProcessError as exc:
+            sys.exit("Error running bb-print-layer-data against {0}: {1}".format(layerpath, exc.output))
+        else:
+            layername = layerinfo.split(':')[0]
 
+        sh.rm('-rf', tmpdir)
         filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
+        try:
+            layers_to_cfg = subprocess.check_output([os.path.join(scriptdir, 'bb-determine-layers'), '-l', layername, '-g', '{0}/../*:{0}/../*/*'.format(corebase), 'qemux86'], stderr=NULL).splitlines()
+        except subprocess.CalledProcessError as exc:
+            sys.exit("Error running bb-determine-layers: {0}".format(exc))
+        bblayers_add = ' '.join(l.rstrip() for l in layers_to_cfg)
+
         with open('conf/bblayers.conf', 'a') as f:
-            f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
+            f.write('BBLAYERS =+ "{0}"\n'.format(bblayers_add))
 
         with bb_test.status('Testing parsing for {0}'.format(layerbase)) as s:
             try:
@@ -75,18 +95,24 @@ def main(cmdline_args):
         targets = set()
         with bb_test.status('Gathering appends for {0}'.format(layerbase)) as s:
             try:
-                output = bb_test.run('bitbake-layers', 'show-appends')
-            except sh.ErrorReturnCode as exc:
-                s.set_status('error, skipping')
-                continue
-            else:
-                for line in output.splitlines():
-                    line = line.strip()
-                    if line.startswith(layerpath + '/'):
-                        filename = os.path.basename(line)
-                        base, ext = os.path.splitext(filename)
-                        if ext == '.bbappend':
-                            targets.add(base.split('_')[0])
+                output = subprocess.check_output(['bitbake-layers', 'show-appends'], stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as exc:
+                if exc.returncode == 1 and 'missing append for preferred version' in exc.output:
+                    # show-appends returns 1 both for real errors and this
+                    # case, which is not a failure
+                    output = exc.output
+                else:
+                    s.set_status('skipping due to error:\n{0}'.format(exc.output))
+                    continue
+
+            for line in output.splitlines():
+                line = line.strip()
+                if line.startswith(layerpath + '/'):
+                    filename = os.path.basename(line)
+                    base, ext = os.path.splitext(filename)
+                    if ext == '.bbappend':
+                        targets.add(base.split('_')[0])
+            if targets:
                 s.set_status(', '.join(targets))
 
         filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
@@ -95,14 +121,14 @@ def main(cmdline_args):
                 try:
                     bb_test.bitbake('-S', 'none', target)
                 except sh.ErrorReturnCode:
-                    s.set_status('skipped')
+                    s.set_status('error, skipped')
                     targets.remove(target)
 
         if not targets:
             continue
 
         with open('conf/bblayers.conf', 'a') as f:
-            f.write('BBLAYERS =+ "{0}"\n'.format(layerpath))
+            f.write('BBLAYERS =+ "{0}"\n'.format(bblayers_add))
 
         for target in targets:
             with bb_test.status('Testing {0}: {1}'.format(layerbase, target)) as s:
