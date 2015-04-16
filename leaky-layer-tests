@@ -138,6 +138,7 @@ def main(cmdline_args):
                     sys.exit("Error testing {0}: {1}".format(layerbase, exc.message))
                 else:
                     if (not output or
+                        output == 'Figuring out the STAMPS_DIR ...\n' or
                         any(m in output for m in ['ERROR message shown', 'Summary: (0 changed'])):
                         continue
 
