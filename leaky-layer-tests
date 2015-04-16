@@ -64,7 +64,7 @@ def main(cmdline_args):
     for layerpath in sorted(layers):
         layerpath = os.path.realpath(layerpath)
         layerbase = os.path.relpath(layerpath, os.path.join(corebase, '..'))
-        if layerbase in args.excluded:
+        if layerbase in excluded:
             continue
 
         try:
