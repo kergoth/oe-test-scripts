@@ -125,7 +125,7 @@ def main(cmdline_args):
                 s.set_status(', '.join(targets))
 
         filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
-        for target in list(targets):
+        for target in sorted(targets):
             with bb_test.status('Generating baseline data for {0}: {1}'.format(layerbase, target)) as s:
                 try:
                     bb_test.bitbake('-S', 'none', target)
@@ -139,7 +139,7 @@ def main(cmdline_args):
         with open('conf/bblayers.conf', 'a') as f:
             f.write('BBLAYERS =+ "{0}"\n'.format(bblayers_add))
 
-        for target in list(targets):
+        for target in sorted(targets):
             with bb_test.status('Testing {0}: {1}'.format(layerbase, target)) as s:
                 try:
                     output = bb_test.bitbake('-S', 'printdiff', target)
