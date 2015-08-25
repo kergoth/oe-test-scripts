@@ -20,9 +20,11 @@
 
 import argparse
 import bb_test
+import errno
 import glob
 import os
 import sh
+import shutil
 import subprocess
 import sys
 
@@ -155,12 +157,15 @@ def main(cmdline_args):
                         try:
                             os.unlink(output_fn)
                         except OSError as exc:
-                            import errno
                             if exc.errno != errno.ENOENT:
                                 raise
 
     topdir = bitbake_env['TOPDIR']
-    bb.utils.remove(os.path.join(topdir, 'sstate-leaky-layer-tests'), recurse=True)
+    try:
+        shutil.rmtree(os.path.join(topdir, 'sstate-leaky-layer-tests'))
+    except OSError as exc:
+        if exc.errno != errno.ENOENT:
+            sys.exit(str(exc))
 
 
 def filter_lines(filename, keepfunc):
