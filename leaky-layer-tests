@@ -159,6 +159,9 @@ def main(cmdline_args):
                             if exc.errno != errno.ENOENT:
                                 raise
 
+    topdir = bitbake_env['TOPDIR']
+    bb.utils.remove(os.path.join(topdir, 'sstate-leaky-layer-tests'), recurse=True)
+
 
 def filter_lines(filename, keepfunc):
     with open(filename, 'rU') as f:
