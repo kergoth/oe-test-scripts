@@ -146,8 +146,8 @@ def main(cmdline_args):
                 except sh.ErrorReturnCode as exc:
                     sys.exit("Error testing {0}: {1}".format(layerbase, exc.message))
                 else:
+                    output_fn = 'leaky-layer-test.{0}.{1}'.format(layerbase.replace('/', '_'), target)
                     if 'Variable' in output:
-                        output_fn = 'leaky-layer-test.{0}.{1}'.format(layerbase.replace('/', '_'), target)
                         with open(output_fn, 'w') as f:
                             f.write(output)
                         s.set_status('modified (see `{0}`)'.format(output_fn))
