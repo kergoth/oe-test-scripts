@@ -134,7 +134,7 @@ def main(cmdline_args):
         with open('conf/bblayers.conf', 'a') as f:
             f.write('BBLAYERS =+ "{0}"\n'.format(bblayers_add))
 
-        for target in targets:
+        for target in list(targets):
             with bb_test.status('Testing {0}: {1}'.format(layerbase, target)) as s:
                 try:
                     output = bb_test.bitbake('-S', 'printdiff', target)
