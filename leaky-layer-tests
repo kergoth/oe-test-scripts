@@ -151,6 +151,13 @@ def main(cmdline_args):
                         with open(output_fn, 'w') as f:
                             f.write(output)
                         s.set_status('modified (see `{0}`)'.format(output_fn))
+                    else:
+                        try:
+                            os.unlink(output_fn)
+                        except OSError as exc:
+                            import errno
+                            if exc.errno != errno.ENOENT:
+                                raise
 
 
 def filter_lines(filename, keepfunc):
