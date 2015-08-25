@@ -39,6 +39,10 @@ def main(cmdline_args):
     args = parser.parse_args(cmdline_args[1:])
     scriptdir = os.path.dirname(cmdline_args[0])
 
+    with open('conf/auto.conf', 'w') as f:
+        # We only want bitbake -S printdiff to pay attention to STAMPS_DIR
+        f.write('SSTATE_DIR_forcevariable = "${TOPDIR}/sstate-leaky-layer-tests"\n')
+
     filter_lines('conf/bblayers.conf', lambda l: not l.startswith('BBLAYERS =+ '))
 
     try:
@@ -133,20 +137,15 @@ def main(cmdline_args):
         for target in targets:
             with bb_test.status('Testing {0}: {1}'.format(layerbase, target)) as s:
                 try:
-                    output = bb_test.run('bitbake-whatchanged', target)
+                    output = bb_test.bitbake('-S', 'printdiff', target)
                 except sh.ErrorReturnCode as exc:
                     sys.exit("Error testing {0}: {1}".format(layerbase, exc.message))
                 else:
-                    if (not output or
-                        output == 'Figuring out the STAMPS_DIR ...\n' or
-                        any(m in output for m in ['ERROR message shown', 'Summary: (0 changed'])):
-                        continue
-
-                    output_fn = 'leaky-layer-test.{0}.{1}'.format(layerbase.replace('/', '_'), target)
-                    verbose = bb_test.run('bitbake-whatchanged', '-v', target)
-                    with open(output_fn, 'w') as f:
-                        f.write(verbose)
-                    s.set_status('modified (see `{0}`)'.format(output_fn))
+                    if 'Variable' in output:
+                        output_fn = 'leaky-layer-test.{0}.{1}'.format(layerbase.replace('/', '_'), target)
+                        with open(output_fn, 'w') as f:
+                            f.write(output)
+                        s.set_status('modified (see `{0}`)'.format(output_fn))
 
 
 def filter_lines(filename, keepfunc):
