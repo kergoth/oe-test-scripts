@@ -35,9 +35,16 @@ def main(cmdline_args):
     parser.add_argument('--excluded', '-x',
                         default='poky/meta oe-core/meta poky/meta-yocto oe-core/meta-yocto',
                         help='layers to exclude from processing (default: %(default)s)')
+    parser.add_argument('layers', metavar='LAYER', nargs='*',
+                        help='layers to include (default: all available)')
 
     args = parser.parse_args(cmdline_args[1:])
     scriptdir = os.path.dirname(cmdline_args[0])
+
+    if not args.layers:
+        lconfs = set(glob.glob('{0}/../*/conf/layer.conf'.format(corebase)))
+        lconfs |= set(glob.glob('{0}/../*/*/conf/layer.conf'.format(corebase)))
+        args.layers = (l[:-len('/conf/layer.conf')] for l in lconfs)
 
     with open('conf/auto.conf', 'w') as f:
         # We only want bitbake -S printdiff to pay attention to STAMPS_DIR
@@ -54,21 +61,19 @@ def main(cmdline_args):
 
     layers = set()
     corebase = bitbake_env['COREBASE']
-    lconfs = set(glob.glob('{0}/../*/conf/layer.conf'.format(corebase)))
-    lconfs |= set(glob.glob('{0}/../*/*/conf/layer.conf'.format(corebase)))
-    for lconf in lconfs:
-        layerpath = lconf[:-len('/conf/layer.conf')]
-        is_machine_layer = bool(glob.glob('{0}/conf/machine/*.conf'.format(layerpath)))
-        is_distro_layer = bool(glob.glob('{0}/conf/distro/*.conf'.format(layerpath)))
-        if is_machine_layer or is_distro_layer:
-            layers.add(layerpath)
 
     tmpdir = bitbake_env['TMPDIR']
     excluded = args.excluded.split()
-    for layerpath in sorted(layers):
+    for layerpath in sorted(args.layers):
         layerpath = os.path.realpath(layerpath)
         layerbase = os.path.relpath(layerpath, os.path.join(corebase, '..'))
-        if layerbase in excluded:
+
+        if layerbase in excluded or layerpath in excluded:
+            continue
+
+        is_machine_layer = bool(glob.glob('{0}/conf/machine/*.conf'.format(layerpath)))
+        is_distro_layer = bool(glob.glob('{0}/conf/distro/*.conf'.format(layerpath)))
+        if not is_machine_layer and not is_distro_layer:
             continue
 
         try:
